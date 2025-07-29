@@ -1,0 +1,6 @@
+.{
+    .name = .flex,
+    .version = "0.15.0-dev.1271+bb2984673",
+    .paths = .{""},
+    .fingerprint = 0x3890236b47c9fb04,
+}
