@@ -2,36 +2,6 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-/// Example:
-///         const Foo = packed struct {
-///            field1: usize,
-///            field2: []const u8,
-///            bar: FlexibleArray(u8 .{
-///               .parent = @This(),
-///               .name = .bar,
-///               .length_type = usize
-///            }),
-///            baz: FlexibleArray(usize, .{
-///               .parent = @This(),
-///               .name = .baz,
-///               .length_type = void
-///            }),
-///         }
-///
-/// Resulting layout:
-///         const Foo = struct {
-///            field1: usize,
-///            field2: []const u8,
-///            bar: packed struct {
-///               len: usize,
-///               fn slice()
-///            }
-///            baz: packed struct {
-///               len: void,
-///               fn slice()
-///            }
-///         }
-///
 pub const Options = struct {
     /// The parent type, usually provided via `@This()`.
     parent: type,
