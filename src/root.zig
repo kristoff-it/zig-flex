@@ -51,7 +51,7 @@ pub const Options = struct {
     ///
     /// When length type is not `void`, you can access length information via
     /// `field.len`.
-    length_type: type,
+    length_type: type = usize,
 };
 
 pub fn FlexibleArray(T: type, opts: Options) type {
@@ -86,17 +86,19 @@ pub fn FlexibleArray(T: type, opts: Options) type {
 
             const parent: *P = @alignCast(@fieldParentPtr(name, f));
             const bytes: [*]align(@alignOf(P)) u8 = @ptrCast(parent);
-            var offset: usize = @sizeOf(P);
 
+            var offset: usize = @sizeOf(P);
             inline for (pinfo.fields) |field| {
                 const is_flexible = @typeInfo(field.type) == .@"struct" and
                     @hasDecl(field.type, "IsFlexibleArray");
 
                 if (!is_flexible) continue;
 
+                offset = std.mem.alignForward(usize, offset, @alignOf(T));
+
                 const value = @field(parent, field.name);
                 if (std.mem.eql(u8, field.name, name)) {
-                    const items: [*]T = @ptrCast(bytes[offset..]);
+                    const items: [*]T = @alignCast(@ptrCast(bytes[offset..]));
                     if (opts.length_type == void)
                         return items
                     else
@@ -130,6 +132,8 @@ pub fn create(
         if (!@hasField(@TypeOf(lengths), field.name)) {
             @compileError("lengths is missing '" ++ field.name ++ "'");
         }
+
+        size = std.mem.alignForward(usize, size, @alignOf(field.type));
         size += @field(lengths, field.name);
     }
 
@@ -172,6 +176,9 @@ pub fn destroy(
             @hasDecl(field.type, "IsFlexibleArray");
 
         if (!is_flexible) continue;
+
+        size = std.mem.alignForward(usize, size, @alignOf(field.type));
+
         if (field.type.Child == void) {
             size += void_len.?; // missing void_len!
         } else {
@@ -201,6 +208,34 @@ test {
     };
 
     _ = RaxNode;
+}
+
+test "alignment" {
+    const Foo = struct {
+        bar: u32,
+        baz: FlexibleArray(u8, .{
+            .parent = @This(),
+            .name = .baz,
+        }),
+        bax: FlexibleArray(u64, .{
+            .parent = @This(),
+            .name = .bax,
+        }),
+    };
+
+    const foo = try create(Foo, std.testing.allocator, .{
+        .baz = 1,
+        .bax = 1,
+    });
+    defer destroy(std.testing.allocator, foo, null);
+
+    foo.bar = 0;
+    foo.baz.init(&.{1});
+    foo.bax.init(&.{2});
+
+    try std.testing.expectEqual(0, foo.bar);
+    try std.testing.expectEqualSlices(u8, &.{1}, foo.baz.slice());
+    try std.testing.expectEqualSlices(u64, &.{2}, foo.bax.slice());
 }
 
 test {
