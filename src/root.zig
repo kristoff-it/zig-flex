@@ -36,6 +36,10 @@ pub fn Array(T: type, opts: Options) type {
         const IsFlexibleArray = {};
         const Child = T;
         const LengthType = opts.length_type;
+        const SelfPtr = switch (@typeInfo(P).@"struct".layout) {
+            .@"packed" => *align(@alignOf(P):@bitOffsetOf(P, @tagName(opts.name)):@sizeOf(P)) @This(),
+            .auto, .@"extern" => *@This(),
+        };
         comptime {
             const pinfo = @typeInfo(P).@"struct"; // opts.parent must be a struct
             switch (LengthType) {
@@ -56,7 +60,7 @@ pub fn Array(T: type, opts: Options) type {
 
         /// Returns a pointer to the flexible value, only available when
         /// length_type is `bool`.
-        pub fn getPtr(f: *@This()) ?*T {
+        pub inline fn getPtr(f: SelfPtr) ?*T {
             if (LengthType != bool) @compileError(
                 "get is only available for flexible arrays of length type 'bool'",
             );
@@ -69,7 +73,7 @@ pub fn Array(T: type, opts: Options) type {
         /// it will be []T.
         ///
         /// Not available when length_type is `bool`, use `get` instead.
-        pub fn slice(f: *@This()) ReturnType {
+        pub inline fn slice(f: SelfPtr) ReturnType {
             return switch (LengthType) {
                 bool => @compileError(
                     "use 'get' on flexible arrays of length type 'bool'",
@@ -79,7 +83,7 @@ pub fn Array(T: type, opts: Options) type {
         }
 
         const ReturnType = if (LengthType == void) [*]T else []T;
-        fn sliceImpl(f: *@This()) ReturnType {
+        inline fn sliceImpl(f: SelfPtr) ReturnType {
             const pinfo = @typeInfo(P).@"struct"; // opts.parent must be a struct
             const name = @tagName(opts.name);
 
@@ -182,7 +186,7 @@ pub fn SomeLengths(P: type) type {
 
 /// Creates an instance of a struct with FlexibleArray fields.
 /// Sets all FlexibleArray len fields to the correct value.
-pub fn create(
+pub inline fn create(
     /// A struct type that contains FlexibleArray Fields
     P: type,
     gpa: Allocator,
@@ -219,7 +223,7 @@ pub fn create(
     return p;
 }
 
-pub fn destroy(
+pub inline fn destroy(
     gpa: Allocator,
     /// Pointer to an instance of a struct that contains FlexibleArray fields
     p: anytype,
@@ -274,7 +278,7 @@ pub fn destroy(
 /// - old_length > new_length:
 ///      only old data that fits the new length will be copied, discarding old
 ///      data starting from the end. e.g.: [1, 2, 3, 4] -> [1, 2, 3]
-pub fn resize(
+pub inline fn resize(
     P: type,
     gpa: Allocator,
     p: *P,
