@@ -116,8 +116,8 @@ pub fn main () !void {
   });
 
   p.age = 30;
-  p.name.init("loris"); // will panic if length does not match
-  p.surname.init("cro"); // will panic if length does not match
+  p.name.init("loris"); // asserts matching length
+  p.surname.init("cro"); // asserts matching length
   
   std.debug.print("name = {s} surname = {s}\n",. {
      p.name.slice(),
